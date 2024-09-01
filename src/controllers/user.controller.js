@@ -191,42 +191,40 @@ const getCurrentUser = asyncHandler(async(req,res) => {
 var User = require('../models/user.model');
 var csv = require('csvtojson');
 
-const importUser = async(req,res)=>{
 
-    try{
+const importUser = async (req, res) => {
+  try {
+    let userData = [];
 
-        var userData = [];
+    // Convert CSV file to JSON
+    await csv()
+      .fromFile(req.file.path)
+      .then(async (response) => {
+        for (let x = 0; x < response.length; x++) {
+          userData.push({
+            username: response[x].username,   // Assuming the CSV has a 'username' field
+            email: response[x].email,         // Assuming the CSV has an 'email' field
+            password: response[x].password,   // Assuming the CSV has a 'password' field
+            role: response[x].role || 'user', // Optional, defaults to 'user'
+          });
+        }
 
-        csv()   //taking data from the csv file uploaded in uploads
-        .fromFile(req.file.path)
-        .then(async(response) => {
-            
-            for(var x = 0; x< response.length; x++){
-                userData.push({
-                    fname: response[x].first_name,
-                    lname: response[x].last_name,
-                    ag: response[x].age,
-                });
-            }
+        // Insert the user data into the database
+        for (let user of userData) {
+          const newUser = new User(user);
+          await newUser.save(); // This will trigger the pre-save hook to hash passwords
+        }
+      });
 
-            await User.insertMany(userData);
+    res.status(200).send({ success: true, msg: 'CSV imported successfully' });
 
-        });
-
-        res.send({status:200, success:true,msg:'csv imported'});
-
-    } catch (error){
-        res.send({status:400, success:false,msg:error.message});
-
-    }
- }
-
-//END OF CONTROLLER
+  } catch (error) {
+    res.status(400).send({ success: false, msg: error.message });
+  }
+};
 
 
 export { registerUser, loginUser, logoutUser, refreshAccessToken, getCurrentUser };
 
 
-module.exports = {
-  importUser
-}
+export { importUser };
